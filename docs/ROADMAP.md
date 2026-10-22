@@ -126,4 +126,34 @@ The new shell is stable enough for the intended environment.
 
 ## Current Status
 
-Phase 0 — Project preparation.
+**Active Phase:** Phase 0 — Project Preparation
+
+### Documentation
+- [x] README.md
+- [x] Feature inventory
+- [x] Architecture plan
+- [x] Initial roadmap
+- [x] Initial performance notes
+- [ ] Complete upstream feature audit
+- [ ] Review licensing requirements
+
+### Performance Baseline
+- [x] Preliminary Noctalia process measurement
+- [ ] Controlled idle measurement
+- [ ] Repeatable system memory measurement
+- [ ] Equivalent-condition comparison plan
+
+Catatan:
+Pengukuran awal Noctalia dilakukan saat Arknights sedang
+diluncurkan. Angka tersebut masih bersifat observasi awal,
+bukan baseline idle yang terkontrol.
+
+### Decisions Still Open
+- Implementation language: Rust or C++
+- UI toolkit and Wayland layer-shell approach
+- Initial dependency list
+- First implementation target
+
+Feature priorities remain provisional. New user-proposed
+features may be added after reviewing their requirements,
+resource impact, and compatibility.

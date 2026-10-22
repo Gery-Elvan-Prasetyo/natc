@@ -3,11 +3,22 @@
 
 Daftar fitur yang akan dipelajari dan direncanakan untuk Serpantinum Native.
 
-Status:
+Status implementasi setiap fitur:
+
 - [ ] Belum dianalisis
 - [ ] Sudah dianalisis
+- [ ] Siap direncanakan
 - [ ] Sedang dikembangkan
-- [ ] Selesai dan
+- [ ] Selesai dan sudah diuji
+- [ ] Ditunda
+- [ ] Tidak diadopsi
+
+Status audit upstream:
+
+- [ ] Belum diperiksa
+- [ ] Diperiksa melalui dokumentasi resmi
+- [ ] Diverifikasi melalui kode sumber
+- [ ] Keputusan porting sudah ditetapkan
 
 ## 1. Desktop Bar
 - [ ] Jam dan tanggal
@@ -103,6 +114,46 @@ Status:
 - [ ] Semua fitur memiliki pengujian dasar
 - [ ] Tidak mengubah konfigurasi Hyprland pengguna secara diam-diam
 - [ ] Bandingkan performa pada kondisi penggunaan yang setara
+
+## Prioritas Implementasi
+
+Prioritas ini bersifat sementara dan bisa berubah setelah audit upstream.
+
+### P0 — Fondasi
+- [ ] Integrasi dasar dengan Hyprland
+- [ ] Dukungan Wayland layer-shell
+- [ ] Konfigurasi pengguna
+- [ ] Logging dan penanganan error
+- [ ] Pengukuran RAM dan CPU
+
+### P1 — Fitur Desktop Inti
+- [ ] Desktop bar
+- [ ] Jam dan tanggal
+- [ ] Indikator workspace
+- [ ] Launcher aplikasi
+- [ ] Kontrol audio
+- [ ] Status jaringan dan baterai
+
+### P2 — Fitur Lanjutan
+- [ ] Control center
+- [ ] Notifikasi
+- [ ] Dock
+- [ ] System tray
+- [ ] Tema dan transparansi
+- [ ] Dukungan multi-monitor
+
+### P3 — Fitur Opsional dan Eksperimen
+- [ ] Clipboard history
+- [ ] Screenshot overlay
+- [ ] Widget desktop
+- [ ] Wallpaper picker
+- [ ] Animasi lanjutan
+- [ ] Fitur tambahan usulan pengguna
+
+Catatan:
+Prioritas bukan keputusan final. Fitur yang berkaitan dengan
+keamanan, stabilitas, atau dependensi wajib dapat dipindahkan
+ke prioritas lebih tinggi setelah dianalisis.
 
 Catatan:
 Daftar ini merupakan inventaris awal dari dokumentasi upstream,
