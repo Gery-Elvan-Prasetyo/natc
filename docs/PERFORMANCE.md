@@ -99,3 +99,19 @@ Responsiveness, stability, and feature parity also matter.
 
 Benchmarking has not started.
 No performance claims have been verified.
+
+
+### Baseline Noctalia — 22 Oktober 2026
+
+- Sistem: CachyOS + Hyprland
+- RAM fisik: 8 GB (7,5 GiB terdeteksi)
+- Proses Noctalia: PID 1047
+- RSS awal: 134928 KiB
+- RSS pengukuran berulang: 132476–132728 KiB
+- Rata-rata RSS berulang: sekitar 129,6 MiB
+- CPU pengukuran berulang: sekitar 1,1%
+- Jumlah sampel: 5
+- Kondisi: sesi ketika Arknights sedang diluncurkan; kondisi game belum dipastikan stabil.
+
+Catatan: RSS adalah memori resident proses, bukan total penggunaan
+memori seluruh komponen shell. Hasil CPU merupakan sampel sesaat.
