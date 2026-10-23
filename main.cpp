@@ -3,6 +3,8 @@
 #include <QQmlApplicationEngine>
 #include <QObject>
 #include <cstdlib>
+#include "SystemStatus.h"
+#include <QQmlContext>
 
 int main(int argc, char *argv[])
 {
@@ -13,6 +15,9 @@ int main(int argc, char *argv[])
     app.setApplicationVersion("0.1.0");
 
     QQmlApplicationEngine engine;
+    SystemStatus systemStatus;
+engine.rootContext()->setContextProperty(
+    "systemStatus", &systemStatus);
 
     QObject::connect(
         &engine,

@@ -1,0 +1,710 @@
+import QtQuick
+import QtQuick.Window
+import org.kde.layershell 1.0 as LayerShell
+
+Window {
+    id: root
+    visible: true
+    width: 1200
+    height: 44
+    color: "transparent"
+    title: "Serpantinum Native"
+
+    LayerShell.Window.anchors:
+        LayerShell.Window.AnchorTop |
+        LayerShell.Window.AnchorLeft |
+        LayerShell.Window.AnchorRight
+    LayerShell.Window.layer: LayerShell.Window.LayerTop
+    LayerShell.Window.exclusionZone: 44
+    LayerShell.Window.keyboardInteractivity:
+        LayerShell.Window.KeyboardInteractivityNone
+    LayerShell.Window.scope: "serpantinum-bar"
+
+    property bool orbitOpen: false
+    property string selectedCategory: "Bluetooth"
+    property string clockText: ""
+    property string statusMessage: "Status sistem siap"
+    property bool wifiPasswordDialogOpen: false
+    property string pendingWifiSsid: ""
+    property string wifiPassword: ""
+    property bool showWifiPassword: false
+
+    readonly property color accent: "#e7a3e8"
+    readonly property color accentBright: "#f1c4f0"
+    readonly property color textMain: "#f5edf7"
+    readonly property color textMuted: "#b6a9bd"
+
+    // Data perangkat diambil dari backend C++ SystemStatus.
+    readonly property var systemStatusBackend: systemStatus
+    readonly property var bluetoothDevices: systemStatus.bluetoothDevices
+    readonly property var wifiNetworks: systemStatus.wifiNetworks
+
+    readonly property var cardPositions: [
+        { x: 190, y: 72 },
+        { x: 490, y: 72 },
+        { x: 4,   y: 220 },
+        { x: 606, y: 220 },
+        { x: 126, y: 392 },
+        { x: 474, y: 392 }
+    ]
+
+    function updateClock() {
+        clockText = Qt.formatDateTime(new Date(), "ddd, dd MMM  HH:mm:ss")
+    }
+
+    Component.onCompleted: updateClock()
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: true
+        onTriggered: root.updateClock()
+    }
+
+    Rectangle {
+        id: bar
+        anchors.fill: parent
+        color: "#f217141c"
+        border.color: "#40333e"
+        border.width: 1
+
+        Text {
+            anchors.left: parent.left
+            anchors.leftMargin: 18
+            anchors.verticalCenter: parent.verticalCenter
+            text: "SERPANTINUM"
+            color: root.textMain
+            font.pixelSize: 14
+            font.bold: true
+        }
+
+        Text {
+            anchors.centerIn: parent
+            text: "NATIVE  •  PROTOTYPE"
+            color: root.textMuted
+            font.pixelSize: 11
+        }
+
+        Rectangle {
+            id: orbitTrigger
+            width: 34
+            height: 30
+            radius: 10
+            anchors.right: clockLabel.left
+            anchors.rightMargin: 16
+            anchors.verticalCenter: parent.verticalCenter
+            color: triggerMouse.containsMouse ? "#4a344b" : "#2b232f"
+            border.color: root.orbitOpen ? root.accent : "#65536a"
+            border.width: 1
+
+            Text {
+                anchors.centerIn: parent
+                text: "◉"
+                color: root.accentBright
+                font.pixelSize: 17
+            }
+
+            MouseArea {
+                id: triggerMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: {
+                    root.orbitOpen = !root.orbitOpen
+                    if (root.orbitOpen) {
+                        systemStatus.refresh()
+                        if (root.selectedCategory === "Wi-Fi") {
+                            root.statusMessage = "Wi-Fi • " + systemStatus.wifiConnection
+                        } else {
+                            root.statusMessage = systemStatus.bluetoothEnabled
+                                ? "Bluetooth • Aktif" : "Bluetooth • Nonaktif"
+                        }
+                    }
+                }
+            }
+        }
+
+        Text {
+            id: clockLabel
+            anchors.right: parent.right
+            anchors.rightMargin: 18
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.clockText
+            color: root.textMain
+            font.pixelSize: 13
+            font.family: "monospace"
+        }
+    }
+
+    // A separate layer-shell surface keeps the bar at 44 px.
+    Window {
+        id: orbitWindow
+        visible: root.orbitOpen
+        width: 770
+        height: 600
+        color: "transparent"
+        title: "Serpantinum Quick Settings"
+        flags: Qt.FramelessWindowHint
+
+        LayerShell.Window.anchors:
+            LayerShell.Window.AnchorTop |
+            LayerShell.Window.AnchorRight
+        LayerShell.Window.margins.top: 54
+        LayerShell.Window.margins.right: 4
+        LayerShell.Window.layer: LayerShell.Window.LayerTop
+        LayerShell.Window.exclusionZone: 0
+        LayerShell.Window.keyboardInteractivity: root.wifiPasswordDialogOpen
+            ? LayerShell.Window.KeyboardInteractivityOnDemand
+            : LayerShell.Window.KeyboardInteractivityNone
+        LayerShell.Window.scope: "serpantinum-orbit"
+
+        Rectangle {
+            id: glassPanel
+            anchors.fill: parent
+            radius: 24
+            color: "#f20e0b11"
+            border.width: 1
+            border.color: "#5fe7c2e9"
+            clip: true
+
+            // Layered highlights approximate liquid glass without a costly blur.
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                height: 150
+                radius: 24
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: "#24f5d8f5" }
+                    GradientStop { position: 0.55; color: "#0ce7a3e8" }
+                    GradientStop { position: 1.0; color: "#00000000" }
+                }
+            }
+
+            Rectangle {
+                x: 1
+                y: 1
+                width: parent.width - 2
+                height: 1
+                color: "#68f7e7fa"
+                opacity: 0.8
+            }
+
+            // Lines connect the central category to the six floating cards.
+            Repeater {
+                model: root.cardPositions
+
+                delegate: Rectangle {
+                    required property int index
+                    required property var modelData
+
+                    property real centerX: glassPanel.width / 2
+                    property real centerY: 278
+                    property real targetX: modelData.x + 75
+                    property real targetY: modelData.y + 30
+                    property real dx: targetX - centerX
+                    property real dy: targetY - centerY
+
+                    x: centerX
+                    y: centerY
+                    width: Math.sqrt(dx * dx + dy * dy)
+                    height: 1
+                    transformOrigin: Item.Left
+                    rotation: Math.atan2(dy, dx) * 180 / Math.PI
+                    color: root.accent
+                    opacity: 0.28
+                }
+            }
+
+            // Device/network cards arranged around the center, like the reference.
+            Repeater {
+                id: deviceRepeater
+                property var shellRoot: root
+                model: (deviceRepeater.shellRoot.selectedCategory === "Bluetooth"
+                       ? deviceRepeater.shellRoot.bluetoothDevices : deviceRepeater.shellRoot.wifiNetworks).slice(0, 6)
+
+                delegate: Rectangle {
+                    id: deviceCard
+                    property var shellRoot: root
+                    required property int index
+                    required property var modelData
+
+                    x: deviceCard.shellRoot.cardPositions[index].x
+                    y: deviceCard.shellRoot.cardPositions[index].y
+                    width: 150
+                    height: 60
+                    radius: 12
+                    color: cardMouse.containsMouse ? "#d52d2334" : "#a91c1821"
+                    border.width: 1
+                    border.color: cardMouse.containsMouse
+                                  ? deviceCard.shellRoot.accent : "#65516c"
+
+                    Behavior on color {
+                        ColorAnimation { duration: 120 }
+                    }
+                    Behavior on border.color {
+                        ColorAnimation { duration: 120 }
+                    }
+
+                    Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 8
+                        spacing: 8
+
+                        Text {
+                            width: 17
+                            height: parent.height
+                            verticalAlignment: Text.AlignVCenter
+                            text: deviceCard.shellRoot.selectedCategory === "Bluetooth" ? "ᛒ" : "◆"
+                            color: deviceCard.shellRoot.accent
+                            font.pixelSize: 17
+                        }
+
+                        Column {
+                            width: 105
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 5
+
+                            Text {
+                                width: parent.width
+                                text: deviceCard.modelData.name
+                                color: deviceCard.shellRoot.textMain
+                                font.pixelSize: 10
+                                elide: Text.ElideRight
+                            }
+
+                            Text {
+                                text: deviceCard.modelData.action
+                                color: deviceCard.shellRoot.textMuted
+                                font.pixelSize: 10
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        id: cardMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            if (deviceCard.shellRoot.selectedCategory === "Wi-Fi") {
+                                if (deviceCard.modelData.connected) {
+                                    deviceCard.shellRoot.statusMessage = deviceCard.modelData.name + " • sudah terhubung"
+                                } else if (!deviceCard.shellRoot.systemStatusBackend.connectWifi(deviceCard.modelData.name, "")) {
+                                    deviceCard.shellRoot.statusMessage = deviceCard.shellRoot.systemStatusBackend.actionMessage
+                                    if (deviceCard.shellRoot.systemStatusBackend.wifiEnabled &&
+                                        deviceCard.shellRoot.systemStatusBackend.actionMessage.indexOf("Masukkan sandi") === 0) {
+                                        deviceCard.shellRoot.pendingWifiSsid = deviceCard.modelData.name
+                                        deviceCard.shellRoot.wifiPassword = ""
+                                        deviceCard.shellRoot.wifiPasswordDialogOpen = true
+                                    }
+                                } else {
+                                    deviceCard.shellRoot.statusMessage = deviceCard.shellRoot.systemStatusBackend.actionMessage
+                                }
+                            } else {
+                                deviceCard.shellRoot.statusMessage = deviceCard.modelData.name +
+                                    " • " + deviceCard.modelData.action
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Center hub.
+            Item {
+                id: hub
+                width: 148
+                height: 148
+                x: (glassPanel.width - width) / 2
+                y: 204
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: width / 2
+                    color: "#151019"
+                    border.width: 1
+                    border.color: "#50e7a3e8"
+                    opacity: 0.8
+                }
+
+                Rectangle {
+                    width: 92
+                    height: 92
+                    radius: 46
+                    anchors.centerIn: parent
+                    color: "#ec17121c"
+                    border.width: 2
+                    border.color: root.accent
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: root.selectedCategory === "Bluetooth" ? "ᛒ" : "◆"
+                        color: root.accentBright
+                        font.pixelSize: 35
+                    }
+                }
+
+                Rectangle {
+                    width: 8
+                    height: 8
+                    radius: 4
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    color: root.accentBright
+                    opacity: 0.9
+                }
+            }
+
+            // Bottom category selector and safe, non-destructive power placeholder.
+            Rectangle {
+                id: categorySelector
+                width: 306
+                height: 46
+                radius: 13
+                anchors.left: parent.left
+                anchors.leftMargin: 226
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 18
+                color: "#b827222e"
+                border.color: "#554653"
+                border.width: 1
+
+                Row {
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    spacing: 4
+
+                    Repeater {
+                        model: ["Wi-Fi", "Bluetooth"]
+
+                        delegate: Rectangle {
+                            required property string modelData
+                            width: (categorySelector.width - 16) / 2
+                            height: categorySelector.height - 8
+                            radius: 9
+                            color: root.selectedCategory === modelData
+                                   ? root.accent : "#16000000"
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 7
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData === "Wi-Fi" ? "◆" : "ᛒ"
+                                    color: root.selectedCategory === modelData
+                                           ? "#281d2b" : root.textMain
+                                    font.pixelSize: 13
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: modelData
+                                    color: root.selectedCategory === modelData
+                                           ? "#281d2b" : root.textMain
+                                    font.pixelSize: 11
+                                    font.bold: root.selectedCategory === modelData
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    root.selectedCategory = modelData
+                                    systemStatus.refresh()
+                                    if (modelData === "Wi-Fi") {
+                                        root.statusMessage = "Wi-Fi • " + systemStatus.wifiConnection
+                                    } else {
+                                        root.statusMessage = systemStatus.bluetoothEnabled
+                                            ? "Bluetooth • Aktif" : "Bluetooth • Nonaktif"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                id: wifiToggleButton
+                visible: root.selectedCategory === "Wi-Fi"
+                width: 142
+                height: 42
+                radius: 12
+                anchors.left: parent.left
+                anchors.leftMargin: 22
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 20
+                color: wifiToggleMouse.containsMouse ? "#f2c2ef" : "#b827222e"
+                border.color: root.accent
+                border.width: 1
+
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "◆"
+                        color: root.selectedCategory === "Wi-Fi" && systemStatus.wifiEnabled
+                               ? root.accentBright : root.textMuted
+                        font.pixelSize: 14
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: systemStatus.wifiEnabled ? "Wi-Fi Aktif" : "Wi-Fi Mati"
+                        color: wifiToggleMouse.containsMouse ? "#291b2b" : root.textMain
+                        font.pixelSize: 11
+                        font.bold: true
+                    }
+                }
+
+                MouseArea {
+                    id: wifiToggleMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        systemStatus.setWifiEnabled(!systemStatus.wifiEnabled)
+                        root.statusMessage = systemStatus.actionMessage
+                    }
+                }
+            }
+
+            Rectangle {
+                id: wifiScanButton
+                visible: root.selectedCategory === "Wi-Fi"
+                width: 94
+                height: 42
+                radius: 12
+                anchors.left: wifiToggleButton.right
+                anchors.leftMargin: 10
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 20
+                color: scanMouse.containsMouse ? "#f2c2ef" : "#b827222e"
+                border.color: root.accent
+                border.width: 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "↻  Scan"
+                    color: scanMouse.containsMouse ? "#291b2b" : root.textMain
+                    font.pixelSize: 11
+                    font.bold: true
+                }
+
+                MouseArea {
+                    id: scanMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        systemStatus.scanWifi()
+                        root.statusMessage = systemStatus.actionMessage
+                    }
+                }
+            }
+
+            Rectangle {
+                id: powerButton
+                width: 42
+                height: 42
+                radius: 21
+                anchors.right: parent.right
+                anchors.rightMargin: 24
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 20
+                color: powerMouse.containsMouse ? "#f2c2ef" : root.accent
+                border.color: "#fff0ff"
+                border.width: 1
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "⏻"
+                    color: "#291b2b"
+                    font.pixelSize: 23
+                }
+
+                MouseArea {
+                    id: powerMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: root.statusMessage =
+                        "Power actions belum diaktifkan"
+                }
+            }
+
+            // Password dialog for secured Wi-Fi networks.
+            Rectangle {
+                id: wifiPasswordOverlay
+                anchors.fill: parent
+                visible: root.wifiPasswordDialogOpen
+                z: 1000
+                color: "#d9080710"
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: { }
+                }
+
+                Rectangle {
+                    id: wifiPasswordCard
+                    width: 340
+                    height: 218
+                    radius: 20
+                    anchors.centerIn: parent
+                    color: "#f51a1520"
+                    border.color: root.accent
+                    border.width: 1
+
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: 20
+                        spacing: 12
+
+                        Text {
+                            text: "Sambungkan ke Wi-Fi"
+                            color: root.textMain
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        Text {
+                            width: parent.width
+                            text: root.pendingWifiSsid
+                            color: root.accentBright
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
+                        }
+
+                        Rectangle {
+                            width: parent.width
+                            height: 42
+                            radius: 10
+                            color: "#b5100d16"
+                            border.color: passwordInput.activeFocus ? root.accent : "#66536c"
+
+                            TextInput {
+                                id: passwordInput
+                                anchors.fill: parent
+                                anchors.leftMargin: 12
+                                anchors.rightMargin: 48
+                                verticalAlignment: TextInput.AlignVCenter
+                                color: root.textMain
+                                font.pixelSize: 13
+                                clip: true
+                                focus: root.wifiPasswordDialogOpen
+                                echoMode: root.showWifiPassword ? TextInput.Normal : TextInput.Password
+                                passwordCharacter: "•"
+                                text: root.wifiPassword
+                                onTextChanged: root.wifiPassword = text
+                                onAccepted: {
+                                    if (systemStatus.connectWifi(root.pendingWifiSsid, root.wifiPassword)) {
+                                        root.statusMessage = systemStatus.actionMessage
+                                        root.wifiPasswordDialogOpen = false
+                                        root.wifiPassword = ""
+                                    } else {
+                                        root.statusMessage = systemStatus.actionMessage
+                                    }
+                                }
+
+                                Text {
+                                    anchors.fill: parent
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: "Kata sandi jaringan"
+                                    color: root.textMuted
+                                    font.pixelSize: 12
+                                    visible: passwordInput.text.length === 0
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.right: parent.right
+                                anchors.rightMargin: 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 38
+                                height: parent.height
+                                hoverEnabled: true
+                                onClicked: root.showWifiPassword = !root.showWifiPassword
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: root.showWifiPassword ? "🙈" : "👁"
+                                    color: root.textMuted
+                                    font.pixelSize: 16
+                                }
+                            }
+                        }
+
+                        Row {
+                            width: parent.width
+                            spacing: 10
+
+                            Rectangle {
+                                width: (parent.width - 10) / 2
+                                height: 38
+                                radius: 10
+                                color: cancelPasswordMouse.containsMouse ? "#4a344b" : "#2b232f"
+                                border.color: "#65536a"
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "Batal"
+                                    color: root.textMain
+                                    font.pixelSize: 12
+                                }
+                                MouseArea {
+                                    id: cancelPasswordMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        root.wifiPasswordDialogOpen = false
+                                        root.wifiPassword = ""
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                id: connectPasswordButton
+                                width: (parent.width - 10) / 2
+                                height: 38
+                                radius: 10
+                                color: connectPasswordMouse.containsMouse ? "#f2c2ef" : root.accent
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "Sambungkan"
+                                    color: "#291b2b"
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                }
+                                MouseArea {
+                                    id: connectPasswordMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        if (systemStatus.connectWifi(root.pendingWifiSsid, root.wifiPassword)) {
+                                            root.statusMessage = systemStatus.actionMessage
+                                            root.wifiPasswordDialogOpen = false
+                                            root.wifiPassword = ""
+                                        } else {
+                                            root.statusMessage = systemStatus.actionMessage
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text {
+                anchors.left: parent.left
+                anchors.right: powerButton.left
+                anchors.leftMargin: 22
+                anchors.rightMargin: 16
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 4
+                text: root.statusMessage
+                color: root.textMuted
+                font.pixelSize: 9
+                elide: Text.ElideRight
+                horizontalAlignment: Text.AlignHCenter
+            }
+        }
+    }
+}

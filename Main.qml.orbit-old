@@ -1,0 +1,318 @@
+
+import QtQuick
+import QtQuick.Window
+import org.kde.layershell 1.0 as LayerShell
+
+Window {
+    id: root
+
+    visible: true
+    width: 1200
+    height: menuOpen ? 560 : 44
+    color: "transparent"
+    title: "Serpantinum Native"
+
+    LayerShell.Window.anchors:
+    LayerShell.Window.AnchorTop |
+    LayerShell.Window.AnchorLeft |
+    LayerShell.Window.AnchorRight
+
+    LayerShell.Window.layer: LayerShell.Window.LayerTop
+    LayerShell.Window.exclusionZone: 44
+    LayerShell.Window.keyboardInteractivity:
+    LayerShell.Window.KeyboardInteractivityNone
+    LayerShell.Window.scope: "serpantinum-bar"
+
+    property bool menuOpen: false
+    property string selectedControl: "Wi-Fi"
+    property string clockText: ""
+
+    property var controls: [
+        { name: "Wi-Fi", symbol: "◉" },
+        { name: "Bluetooth", symbol: "ᛒ" },
+        { name: "Hotspot", symbol: "⌁" },
+        { name: "VPN", symbol: "◇" },
+        { name: "Audio", symbol: "♫" },
+        { name: "Brightness", symbol: "☼" }
+    ]
+
+    function updateClock() {
+        clockText = Qt.formatDateTime(
+            new Date(), "ddd, dd MMM  HH:mm:ss"
+        )
+    }
+
+    Component.onCompleted: updateClock()
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: true
+        onTriggered: root.updateClock()
+    }
+
+    // Backdrop hanya aktif ketika orbit dibuka.
+    MouseArea {
+        anchors.fill: parent
+        enabled: root.menuOpen
+        z: 1
+        onClicked: root.menuOpen = false
+    }
+
+    // Panel bar.
+    Rectangle {
+        id: bar
+        x: 0
+        y: 0
+        width: parent.width
+        height: 44
+        color: "#171923"
+        z: 0
+
+        Text {
+            anchors.left: parent.left
+            anchors.leftMargin: 18
+            anchors.verticalCenter: parent.verticalCenter
+            text: "SERPANTINUM"
+            color: "#cdd6f4"
+            font.pixelSize: 14
+            font.bold: true
+        }
+
+        Text {
+            anchors.centerIn: parent
+            text: "NATIVE  •  PROTOTYPE"
+            color: "#a6adc8"
+            font.pixelSize: 11
+        }
+
+        Rectangle {
+            id: settingsTrigger
+            width: 34
+            height: 30
+            radius: 10
+            anchors.right: clockLabel.left
+            anchors.rightMargin: 16
+            anchors.verticalCenter: parent.verticalCenter
+            color: triggerMouse.containsMouse
+            ? "#45475a" : "#313244"
+            border.color: "#585b70"
+
+            Text {
+                anchors.centerIn: parent
+                text: "◉"
+                color: "#cdd6f4"
+                font.pixelSize: 17
+            }
+
+            MouseArea {
+                id: triggerMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                onClicked: root.menuOpen = !root.menuOpen
+            }
+        }
+
+        Text {
+            id: clockLabel
+            anchors.right: parent.right
+            anchors.rightMargin: 18
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.clockText
+            color: "#cdd6f4"
+            font.pixelSize: 13
+            font.family: "monospace"
+        }
+    }
+
+    // Orbit popup.
+    Rectangle {
+        id: orbitPanel
+
+        width: 520
+        height: 480
+        x: (root.width - width) / 2
+        y: 60
+        radius: 26
+        color: "#202231"
+        border.width: 1
+        border.color: "#585b70"
+        visible: root.menuOpen
+        z: 2
+
+        opacity: root.menuOpen ? 1 : 0
+        scale: root.menuOpen ? 1 : 0.94
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 150
+            }
+        }
+
+        Behavior on scale {
+            NumberAnimation {
+                duration: 150
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        Text {
+            anchors.top: parent.top
+            anchors.topMargin: 20
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "QUICK SETTINGS"
+            color: "#cdd6f4"
+            font.pixelSize: 15
+            font.bold: true
+            font.letterSpacing: 2
+        }
+
+        Text {
+            anchors.top: parent.top
+            anchors.topMargin: 43
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: "Pilih node untuk melihat detail"
+            color: "#a6adc8"
+            font.pixelSize: 11
+        }
+
+        // Garis penghubung dari pusat ke setiap node.
+        Repeater {
+            model: 6
+
+            delegate: Rectangle {
+                required property int index
+
+                width: 145
+                height: 2
+                x: orbitPanel.width / 2
+                y: orbitPanel.height / 2
+                transformOrigin: Item.Left
+                rotation: index * 60 - 90
+                color: "#585b70"
+                opacity: 0.85
+            }
+        }
+
+        // Node orbit.
+        Repeater {
+            model: root.controls
+
+            delegate: Item {
+                id: orbitNode
+
+                required property int index
+                required property var modelData
+
+                width: 84
+                height: 84
+
+                x: orbitPanel.width / 2
+                + 145 * Math.cos(index * Math.PI / 3 - Math.PI / 2)
+                - width / 2
+
+                y: orbitPanel.height / 2
+                + 145 * Math.sin(index * Math.PI / 3 - Math.PI / 2)
+                - height / 2
+
+                Rectangle {
+                    id: nodeCircle
+                    anchors.top: parent.top
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 56
+                    height: 56
+                    radius: 28
+
+                    color: root.selectedControl === modelData.name
+                    ? "#89b4fa" : "#313244"
+
+                    border.width: 1
+                    border.color: root.selectedControl === modelData.name
+                    ? "#b4befe" : "#585b70"
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 120
+                        }
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: modelData.symbol
+                        color: root.selectedControl === modelData.name
+                        ? "#1e1e2e" : "#cdd6f4"
+                        font.pixelSize: 23
+                    }
+                }
+
+                Text {
+                    anchors.top: nodeCircle.bottom
+                    anchors.topMargin: 5
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 100
+                    text: modelData.name
+                    color: "#cdd6f4"
+                    font.pixelSize: 11
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: root.selectedControl = modelData.name
+                }
+            }
+        }
+
+        // Lingkaran pusat.
+        Rectangle {
+            width: 112
+            height: 112
+            radius: 56
+
+            anchors.centerIn: parent
+            color: "#181825"
+            border.width: 2
+            border.color: "#89b4fa"
+
+            Column {
+                anchors.centerIn: parent
+                spacing: 5
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "SERP"
+                    color: "#89b4fa"
+                    font.pixelSize: 11
+                    font.bold: true
+                    font.letterSpacing: 2
+                }
+
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "ORBIT"
+                    color: "#cdd6f4"
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+            }
+        }
+
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 18
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 290
+            height: 38
+            radius: 12
+            color: "#313244"
+            border.color: "#45475a"
+
+            Text {
+                anchors.centerIn: parent
+                text: root.selectedControl + "  •  UI prototype"
+                color: "#cdd6f4"
+                font.pixelSize: 12
+            }
+        }
+    }
+}

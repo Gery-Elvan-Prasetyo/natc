@@ -1,0 +1,115 @@
+#include "SystemStatus.h"
+
+#include <QProcess>
+#include <QRegularExpression>
+
+static QString runCommand(
+    const QString &program,
+    const QStringList &arguments)
+{
+    QProcess process;
+    process.start(program, arguments);
+
+    if (!process.waitForStarted(1000))
+        return {};
+
+    if (!process.waitForFinished(1500)) {
+        process.kill();
+        process.waitForFinished();
+        return {};
+    }
+
+    if (process.exitStatus() != QProcess::NormalExit ||
+        process.exitCode() != 0) {
+        return {};
+    }
+
+    return QString::fromLocal8Bit(
+        process.readAllStandardOutput()).trimmed();
+}
+
+SystemStatus::SystemStatus(QObject *parent)
+    : QObject(parent)
+{
+    refresh();
+}
+
+void SystemStatus::refresh()
+{
+    const QString radio = runCommand(
+        "nmcli", {"radio", "wifi"});
+
+    m_wifiEnabled = radio == "enabled";
+
+    const QString connection = runCommand(
+        "nmcli", {"-t", "-f", "DEVICE,STATE,CONNECTION",
+                  "device", "status"});
+
+    m_wifiConnection = "Tidak terhubung";
+
+    for (const QString &line : connection.split('\n')) {
+        const QStringList fields = line.split(':');
+
+        if (fields.size() >= 3 &&
+            fields[0] == "wlan0" &&
+            fields[1] == "connected") {
+            m_wifiConnection = fields.mid(2).join(':');
+            break;
+        }
+    }
+
+    m_wifiNetworks.clear();
+
+    const QString networks = runCommand(
+        "nmcli", {"-t", "-e", "no",
+                  "-f", "IN-USE,SSID,SIGNAL,SECURITY",
+                  "device", "wifi", "list"});
+
+    for (const QString &line : networks.split('\n')) {
+        const QStringList fields = line.split(':');
+
+        if (fields.size() < 4 || fields[1].isEmpty())
+            continue;
+
+        QVariantMap network;
+        network["name"] = fields[1];
+        network["action"] = fields[0] == "*"
+                          ? "Connected"
+                          : fields[2] + "% signal";
+        network["signal"] = fields[2].toInt();
+        network["security"] = fields[3];
+        network["connected"] = fields[0] == "*";
+
+        m_wifiNetworks.append(network);
+    }
+
+    const QString bluetooth = runCommand(
+        "bluetoothctl", {"show"});
+
+    m_bluetoothEnabled =
+        bluetooth.contains("Powered: yes");
+
+    m_bluetoothDevices.clear();
+
+    const QString devices = runCommand(
+        "bluetoothctl", {"devices"});
+
+    const QRegularExpression devicePattern(
+        "^Device\\s+([0-9A-Fa-f:]+)\\s+(.+)$");
+
+    for (const QString &line : devices.split('\n')) {
+        const auto match = devicePattern.match(line);
+
+        if (!match.hasMatch())
+            continue;
+
+        QVariantMap device;
+        device["name"] = match.captured(2);
+        device["address"] = match.captured(1);
+        device["action"] = "Known device";
+
+        m_bluetoothDevices.append(device);
+    }
+
+    emit changed();
+}

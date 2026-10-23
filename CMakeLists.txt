@@ -5,7 +5,11 @@ find_package(Qt6 6.5 REQUIRED COMPONENTS Quick)
 find_package(LayerShellQt REQUIRED CONFIG)
 qt_standard_project_setup()
 
-qt_add_executable(serpantinum main.cpp)
+qt_add_executable(serpantinum
+ main.cpp
+SystemStatus.h
+SystemStatus.cpp
+)
 
 qt_add_qml_module(serpantinum
     URI Serpantinum
