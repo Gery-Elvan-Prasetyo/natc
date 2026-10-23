@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/Serpantinum">
+    <file alias="qmldir">/home/arianeve/Projects/serpantinum-native/build/Serpantinum/qmldir</file>
+  </qresource>
+</RCC>
+

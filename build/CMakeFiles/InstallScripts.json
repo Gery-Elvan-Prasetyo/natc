@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/arianeve/Projects/serpantinum-native/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

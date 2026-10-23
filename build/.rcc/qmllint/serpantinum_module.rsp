@@ -1,0 +1,14 @@
+-I
+/home/arianeve/Projects/serpantinum-native/build
+-I
+/home/arianeve/Projects/serpantinum-native/build/Serpantinum
+-I
+/home/arianeve/Projects/serpantinum-native/build
+-I
+/usr/lib/qt6/qml
+--resource
+/home/arianeve/Projects/serpantinum-native/build/.qt/rcc/qmake_Serpantinum.qrc
+--resource
+/home/arianeve/Projects/serpantinum-native/build/.qt/rcc/serpantinum_raw_qml_0.qrc
+--module
+Serpantinum

@@ -1,0 +1,6 @@
+module Serpantinum
+typeinfo serpantinum.qmltypes
+prefer :/Serpantinum/
+Main 1.0 Main.qml
+depends QtQuick
+

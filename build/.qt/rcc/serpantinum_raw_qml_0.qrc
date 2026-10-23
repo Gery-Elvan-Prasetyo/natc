@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/Serpantinum/">
+    <file alias="Main.qml">/home/arianeve/Projects/serpantinum-native/Main.qml</file>
+  </qresource>
+</RCC>
+
