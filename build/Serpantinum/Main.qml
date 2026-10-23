@@ -41,10 +41,59 @@ Window {
 
     // Animated elliptical orbit with a connected Wi-Fi focus.
     property real orbitPhase: 0
+    property real targetOrbitPhase: 0
     property string focusedNetworkName: ""
     property string pendingFocusName: ""
-    property int orbitTransitionTicks: 0
+    property real orbitStartPhase: 0
+    property real orbitTransitionElapsed: 0
+    property real orbitTransitionDuration: 900
+    property real orbitMotionBlur: 0
+    property real orbitVelocity: 0
     property bool orbitTransitioning: false
+
+    // Pilih fokus awal tanpa animasi agar kartu dan kabel langsung sejajar.
+    function initializeOrbitFocus() {
+        if (selectedCategory !== "Wi-Fi")
+            return
+
+        var devices = orbitDevices()
+        if (devices.length === 0) {
+            focusedNetworkName = ""
+            cableCanvas.requestPaint()
+            return
+        }
+
+        var focusIndex = 0
+        for (var i = 0; i < devices.length; i++) {
+            if (devices[i].connected) {
+                focusIndex = i
+                break
+            }
+        }
+
+        focusedNetworkName = devices[focusIndex].name
+        pendingFocusName = ""
+        orbitTransitioning = false
+        orbitMotionBlur = 0
+        orbitVelocity = 0
+
+        orbitPhase = Math.PI / 2
+            - focusIndex * Math.PI * 2 / devices.length
+        targetOrbitPhase = orbitPhase
+        orbitStartPhase = orbitPhase
+
+        cableCanvas.requestPaint()
+    }
+
+    onWifiNetworksChanged: {
+        if (orbitOpen && selectedCategory === "Wi-Fi")
+            Qt.callLater(initializeOrbitFocus)
+    }
+
+    onSelectedCategoryChanged: {
+        if (orbitOpen && selectedCategory === "Wi-Fi")
+            Qt.callLater(initializeOrbitFocus)
+    }
 
     function hasConnectedWifi() {
         return wifiNetworks.some(function(network) {
@@ -53,21 +102,9 @@ Window {
     }
 
     function orbitDevices() {
+        // Urutan tetap supaya kartu tidak bertukar indeks saat fokus berubah.
         var devices = (selectedCategory === "Bluetooth"
             ? bluetoothDevices : wifiNetworks).slice()
-
-        if (selectedCategory === "Wi-Fi") {
-            devices.sort(function(a, b) {
-                if (root.focusedNetworkName !== "") {
-                    var af = a.name === root.focusedNetworkName
-                    var bf = b.name === root.focusedNetworkName
-                    if (af !== bf)
-                        return af ? -1 : 1
-                }
-                return (b.connected ? 1 : 0) - (a.connected ? 1 : 0)
-            })
-        }
-
         return devices.slice(0, 6)
     }
 
@@ -76,42 +113,51 @@ Window {
             return
 
         var devices = orbitDevices()
-        if (devices.length > 0 && devices[0].name === networkName)
+        var selectedIndex = -1
+
+        for (var i = 0; i < devices.length; i++) {
+            if (devices[i].name === networkName) {
+                selectedIndex = i
+                break
+            }
+        }
+
+        if (selectedIndex < 0)
             return
 
+        var slots = Math.max(1, devices.length)
+        var currentAngle =
+            selectedIndex * Math.PI * 2 / slots + orbitPhase
+        var delta = Math.PI / 2 - currentAngle
+
+        // Sudut positif = searah jarum jam pada layar.
+        while (delta < 0)
+            delta += Math.PI * 2
+
+        // Gunakan sudut searah jarum jam yang diperlukan saja.
+
         pendingFocusName = networkName
-        orbitTransitionTicks = 36
+        orbitStartPhase = orbitPhase
+        targetOrbitPhase = orbitPhase + delta
+        orbitTransitionElapsed = 0
         orbitTransitioning = true
     }
 
     function orbitPosition(index) {
-        var focusActive = selectedCategory === "Wi-Fi"
-            && (focusedNetworkName !== "" || hasConnectedWifi())
-
-        if (focusActive && index === 0)
-            return { x: 310, y: 80 }
-
-        var slots = focusActive ? 5 : 6
-        var slot = focusActive ? index - 1 : index
-        var angle = slot * Math.PI * 2 / slots + orbitPhase
+        var slots = Math.max(1, orbitDevices().length)
+        var angle = index * Math.PI * 2 / slots + orbitPhase
 
         return {
-            x: 385 + Math.cos(angle) * 245 - 75,
-            y: 278 + Math.sin(angle) * 180 - 30
+            x: 385 + Math.cos(angle) * 270 - 75,
+            y: 278 + Math.sin(angle) * 155 - 30
         }
     }
 
     function orbitDepth(index) {
-        var focusActive = selectedCategory === "Wi-Fi"
-            && (focusedNetworkName !== "" || hasConnectedWifi())
-
-        if (focusActive && index === 0)
-            return 0.55
-
-        var slots = focusActive ? 5 : 6
-        var slot = focusActive ? index - 1 : index
-
-        return Math.sin(slot * Math.PI * 2 / slots + orbitPhase)
+        // -1 = belakang, 0 = sisi, +1 = depan.
+        var slots = Math.max(1, orbitDevices().length)
+        var angle = index * Math.PI * 2 / slots + orbitPhase
+        return Math.sin(angle)
     }
 
     function updateClock() {
@@ -179,6 +225,7 @@ Window {
                     if (root.orbitOpen) {
                         systemStatus.refresh()
                         if (root.selectedCategory === "Wi-Fi") {
+                            Qt.callLater(root.initializeOrbitFocus)
                             root.statusMessage = "Wi-Fi • " + systemStatus.wifiConnection
                         } else {
                             root.statusMessage = systemStatus.bluetoothEnabled
@@ -201,28 +248,55 @@ Window {
         }
     }
 
-    // Slow orbit animation; pauses while Quick Settings is closed.
+    // Fast orbit with a smooth ease-out finish.
     Timer {
         interval: 16
         repeat: true
         running: root.orbitOpen
         onTriggered: {
             if (root.orbitTransitioning) {
-                root.orbitPhase =
-                    (root.orbitPhase + 0.18) % (Math.PI * 2)
-                root.orbitTransitionTicks -= 1
+                root.orbitTransitionElapsed = Math.min(
+                    root.orbitTransitionElapsed + interval,
+                    root.orbitTransitionDuration
+                )
 
-                if (root.orbitTransitionTicks <= 0) {
+                var t = root.orbitTransitionElapsed
+                    / root.orbitTransitionDuration
+                // Ease-out lebih kaya: cepat di awal, lembut saat berhenti.
+                var eased = 1 - Math.pow(1 - t, 4)
+                var previousPhase = root.orbitPhase
+
+                root.orbitPhase = root.orbitStartPhase
+                    + (root.targetOrbitPhase - root.orbitStartPhase) * eased
+
+                // Angular velocity drives cable elasticity and motion glow.
+                root.orbitVelocity =
+                    (root.orbitPhase - previousPhase) / (interval / 1000.0)
+                root.orbitMotionBlur =
+                    Math.min(Math.abs(root.orbitVelocity) / 24.0, 1.0)
+
+                cableCanvas.requestPaint()
+
+                if (t >= 1) {
+                    root.orbitPhase = root.targetOrbitPhase
                     root.focusedNetworkName = root.pendingFocusName
                     root.pendingFocusName = ""
                     root.orbitTransitioning = false
+                    root.orbitMotionBlur = 0
+                    root.orbitVelocity = 0
                 }
             } else {
-                root.orbitPhase =
-                    (root.orbitPhase + 0.0015) % (Math.PI * 2)
-            }
+                // Slow clockwise idle orbit: one revolution in about 52 seconds.
+                var previousPhase = root.orbitPhase
+                var idleSpeed = 2 * Math.PI / 32
 
-            cableCanvas.requestPaint()
+                root.orbitPhase += idleSpeed * interval / 1000.0
+                root.orbitVelocity =
+                    (root.orbitPhase - previousPhase) / (interval / 1000.0)
+                root.orbitMotionBlur = 0
+
+                cableCanvas.requestPaint()
+            }
         }
     }
 
@@ -280,7 +354,7 @@ Window {
                 opacity: 1.0
             }
 
-            // Soft animated cable between the focused Wi-Fi card and hub.
+            // Wavy cables from the hub edge to each card edge.
             Canvas {
                 id: cableCanvas
                 anchors.fill: parent
@@ -290,72 +364,117 @@ Window {
                     var ctx = getContext("2d")
                     ctx.clearRect(0, 0, width, height)
 
-                    if (root.selectedCategory !== "Wi-Fi"
-                        || root.orbitDevices().length === 0)
+                    if (root.selectedCategory !== "Wi-Fi")
                         return
 
-                    var startX = 385
-                    var startY = 140
-                    var endY = 204
+                    var devices = root.orbitDevices()
+                    if (devices.length === 0)
+                        return
 
-                    ctx.beginPath()
-                    for (var i = 0; i <= 48; i++) {
-                        var t = i / 48
-                        var x = startX
-                            + Math.sin(t * Math.PI * 4 + root.orbitPhase * 2) * 4
-                        var y = startY + (endY - startY) * t
+                    var hubX = 385
+                    var hubY = 278
+                    var hubRadius = 25
+                    var focusName = root.orbitTransitioning
+                        ? root.pendingFocusName
+                        : root.focusedNetworkName
+                    var topIndex = 0
+                    var topDepth = -2
 
-                        if (i === 0)
-                            ctx.moveTo(x, y)
-                        else
-                            ctx.lineTo(x, y)
+                    for (var j = 0; j < devices.length; j++) {
+                        var depth = root.orbitDepth(j)
+                        if (depth > topDepth) {
+                            topDepth = depth
+                            topIndex = j
+                        }
                     }
 
-                    ctx.strokeStyle = "#a0a0a0"
-                    ctx.lineWidth = 2
-                    ctx.lineCap = "round"
-                    ctx.shadowColor = "#ffffff"
-                    ctx.shadowBlur = 5
-                    ctx.stroke()
+                    for (var n = 0; n < devices.length; n++) {
+                        var pos = root.orbitPosition(n)
+                        var cardX = pos.x + 75
+                        var cardY = pos.y + 30
+                        var cardScale = 0.70 + (root.orbitDepth(n) + 1) * 0.25
+                        var dx = cardX - hubX
+                        var dy = cardY - hubY
+                        var length = Math.sqrt(dx * dx + dy * dy) || 1
+                        var ux = dx / length
+                        var uy = dy / length
 
-                    // A small moving light travels along the cable.
-                    var pulse = (root.orbitPhase * 8) % 1
-                    var pulseY = startY + (endY - startY) * pulse
-                    var pulseX = startX
-                        + Math.sin(pulse * Math.PI * 4
-                            + root.orbitPhase * 2) * 4
+                        // Start outside the central circle.
+                        var startX = hubX + ux * hubRadius
+                        var startY = hubY + uy * hubRadius
 
-                    ctx.beginPath()
-                    ctx.arc(pulseX, pulseY, 2.2, 0, Math.PI * 2)
-                    ctx.fillStyle = "#ffffff"
-                    ctx.shadowBlur = 8
-                    ctx.fill()
-                }
-            }
+                        // End at the edge of the card rectangle.
+                        var edgeX = Math.abs(dx) > 0.001
+                            ? (75 * cardScale) / Math.abs(dx) : 1000000
+                        var edgeY = Math.abs(dy) > 0.001
+                            ? (30 * cardScale) / Math.abs(dy) : 1000000
+                        var edgeT = Math.min(edgeX, edgeY)
+                        var endX = cardX - dx * edgeT
+                        var endY = cardY - dy * edgeT
 
-            // Lines connect the central category to the six floating cards.
-            Repeater {
-                model: deviceRepeater.count
+                        var vx = endX - startX
+                        var vy = endY - startY
+                        var cableLength = Math.sqrt(vx * vx + vy * vy) || 1
 
-                delegate: Rectangle {
-                    required property int index
-                    required property var modelData
+                        var isFocused = focusName !== ""
+                            ? devices[n].name === focusName
+                            : n === topIndex
 
-                    property real centerX: glassPanel.width / 2
-                    property real centerY: 278
-                    property real targetX: root.orbitPosition(index).x + 75
-                    property real targetY: root.orbitPosition(index).y + 30
-                    property real dx: targetX - centerX
-                    property real dy: targetY - centerY
+                        // Flexible, smooth S-shaped cable.
+                        var perpX = -vy / cableLength
+                        var perpY = vx / cableLength
+                        var phase = root.orbitPhase * 1.8 + n * 1.37
+                        var elastic = Math.max(
+                            -1, Math.min(1, root.orbitVelocity / 24.0)
+                        )
+                        var bend1 = Math.sin(phase) * 14 + elastic * 24
+                        var bend2 = Math.sin(phase + 1.9) * 14 - elastic * 16
 
-                    x: centerX
-                    y: centerY
-                    width: Math.sqrt(dx * dx + dy * dy)
-                    height: 1
-                    transformOrigin: Item.Left
-                    rotation: Math.atan2(dy, dx) * 180 / Math.PI
-                    color: root.accent
-                    opacity: 0.28
+                        var c1X = startX + vx / 3 + perpX * bend1
+                        var c1Y = startY + vy / 3 + perpY * bend1
+                        var c2X = startX + vx * 2 / 3 + perpX * bend2
+                        var c2Y = startY + vy * 2 / 3 + perpY * bend2
+
+                        ctx.beginPath()
+                        ctx.moveTo(startX, startY)
+                        ctx.bezierCurveTo(
+                            c1X, c1Y,
+                            c2X, c2Y,
+                            endX, endY
+                        )
+
+                        ctx.strokeStyle = isFocused ? "#e0eaff" : "#8b9bb5"
+                        ctx.lineWidth = isFocused ? 2.4 : 1.3
+                        ctx.globalAlpha = isFocused ? 0.95 : 0.28
+                        ctx.lineCap = "round"
+                        ctx.shadowColor = isFocused ? "#b9d5ff" : "#8296b5"
+                        ctx.shadowBlur = (isFocused ? 9 : 1) + root.orbitMotionBlur * (isFocused ? 12 : 4)
+                        ctx.stroke()
+
+                        if (isFocused) {
+                            var pulse = ((root.orbitPhase * 0.35) % 1 + 1) % 1
+                            var q = 1 - pulse
+                            var px = q*q*q*startX
+                                + 3*q*q*pulse*c1X
+                                + 3*q*pulse*pulse*c2X
+                                + pulse*pulse*pulse*endX
+                            var py = q*q*q*startY
+                                + 3*q*q*pulse*c1Y
+                                + 3*q*pulse*pulse*c2Y
+                                + pulse*pulse*pulse*endY
+
+                            ctx.beginPath()
+                            ctx.arc(px, py, 2.2, 0, Math.PI * 2)
+                            ctx.globalAlpha = 1
+                            ctx.fillStyle = "#ffffff"
+                            ctx.shadowColor = "#ffffff"
+                            ctx.shadowBlur = 8
+                            ctx.fill()
+                        }
+                    }
+
+                    ctx.globalAlpha = 1
+                    ctx.shadowBlur = 0
                 }
             }
 
@@ -371,32 +490,21 @@ Window {
                     required property int index
                     required property var modelData
 
+                    property bool isFocused:
+                        deviceCard.shellRoot.selectedCategory === "Wi-Fi"
+                        && deviceCard.modelData.name === (
+                            deviceCard.shellRoot.orbitTransitioning
+                            ? deviceCard.shellRoot.pendingFocusName
+                            : deviceCard.shellRoot.focusedNetworkName)
+
                     x: deviceCard.shellRoot.orbitPosition(index).x
                     y: deviceCard.shellRoot.orbitPosition(index).y
                     width: 150
                     height: 60
-                    scale: 0.82 + (deviceCard.shellRoot.orbitDepth(index) + 1) * 0.14
-                    opacity: 0.72 + (deviceCard.shellRoot.orbitDepth(index) + 1) * 0.14
-                    z: 10 + deviceCard.shellRoot.orbitDepth(index)
+                    scale: 0.70 + (deviceCard.shellRoot.orbitDepth(index) + 1) * 0.25
+                    opacity: 0.42 + (deviceCard.shellRoot.orbitDepth(index) + 1) * 0.28
+                    z: 10 + deviceCard.shellRoot.orbitDepth(index) * 3
 
-                    Behavior on x {
-                        NumberAnimation {
-                            duration: 180
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    Behavior on y {
-                        NumberAnimation {
-                            duration: 180
-                            easing.type: Easing.OutCubic
-                        }
-                    }
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: 180
-                            easing.type: Easing.OutCubic
-                        }
-                    }
                     Behavior on opacity {
                         NumberAnimation {
                             duration: 180
@@ -405,15 +513,23 @@ Window {
                     }
 
                     radius: 12
-                    color: cardMouse.containsMouse ? "#FF262626" : "#FF111111"
-                    border.color: deviceCard.shellRoot.selectedCategory === "Wi-Fi"
-                                  && deviceCard.modelData.name === deviceCard.shellRoot.focusedNetworkName
+                    color: cardMouse.containsMouse ? "#FF262626"
+                          : (deviceCard.isFocused ? "#FF202020" : "#FF111111")
+                    border.color: deviceCard.isFocused
                                   ? "#FFFFFFFF"
                                   : (cardMouse.containsMouse
                                      ? deviceCard.shellRoot.accent : "#65505050")
-                    border.width: deviceCard.shellRoot.selectedCategory === "Wi-Fi"
-                                  && deviceCard.modelData.name === deviceCard.shellRoot.focusedNetworkName
-                                  ? 2 : 1
+                    border.width: deviceCard.isFocused ? 3 : 1
+
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 4
+                        radius: 9
+                        color: "transparent"
+                        border.color: "#70ffffff"
+                        border.width: 1
+                        visible: deviceCard.isFocused
+                    }
 
                     Behavior on color {
                         ColorAnimation { duration: 120 }
@@ -491,10 +607,10 @@ Window {
             // Center hub.
             Item {
                 id: hub
-                width: 148
-                height: 148
+                width: 72
+                height: 72
                 x: (glassPanel.width - width) / 2
-                y: 204
+                y: 242
 
                 Rectangle {
                     anchors.fill: parent
@@ -506,9 +622,9 @@ Window {
                 }
 
                 Rectangle {
-                    width: 92
-                    height: 92
-                    radius: 46
+                    width: 44
+                    height: 44
+                    radius: 22
                     anchors.centerIn: parent
                     color: "#FF080808"
                     border.width: 2
@@ -518,7 +634,7 @@ Window {
                         anchors.centerIn: parent
                         text: root.selectedCategory === "Bluetooth" ? "ᛒ" : "◆"
                         color: root.accentBright
-                        font.pixelSize: 35
+                        font.pixelSize: 20
                     }
                 }
 
