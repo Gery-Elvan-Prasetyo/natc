@@ -103,8 +103,25 @@ Window {
     }
 
     onWifiNetworksChanged: {
-        if (orbitOpen && selectedCategory === "Wi-Fi")
+        if (!orbitOpen || selectedCategory !== "Wi-Fi")
+            return
+
+        // Pertahankan fase/fokus orbit saat hasil Scan memperbarui daftar.
+        // Inisialisasi ulang hanya jika belum ada fokus atau jaringan fokus hilang.
+        var devices = orbitDevices()
+        var focusedStillExists = false
+        for (var i = 0; i < devices.length; i++) {
+            if (devices[i].name === focusedNetworkName) {
+                focusedStillExists = true
+                break
+            }
+        }
+
+        if (!focusedNetworkName || !focusedStillExists) {
             Qt.callLater(initializeOrbitFocus)
+        } else {
+            cableCanvas.requestPaint()
+        }
     }
 
     onSelectedCategoryChanged: {
