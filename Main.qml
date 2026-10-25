@@ -39,6 +39,23 @@ Window {
     readonly property var bluetoothDevices: systemStatus.bluetoothDevices
     readonly property var wifiNetworks: systemStatus.wifiNetworks
 
+    Connections {
+        target: systemStatus
+        function onOperationFinished(operation, success, message, ssid, passwordRequired) {
+            root.statusMessage = message
+            if (operation === "connect") {
+                if (passwordRequired) {
+                    root.pendingWifiSsid = ssid
+                    root.wifiPassword = ""
+                    root.wifiPasswordDialogOpen = true
+                } else if (success) {
+                    root.wifiPasswordDialogOpen = false
+                    root.wifiPassword = ""
+                }
+            }
+        }
+    }
+
     // Animated elliptical orbit with a connected Wi-Fi focus.
     property real orbitPhase: 0
     property real targetOrbitPhase: 0
@@ -584,16 +601,10 @@ Window {
                                     deviceCard.modelData.name)
                                 if (deviceCard.modelData.connected) {
                                     deviceCard.shellRoot.statusMessage = deviceCard.modelData.name + " • sudah terhubung"
-                                } else if (!deviceCard.shellRoot.systemStatusBackend.connectWifi(deviceCard.modelData.name, "")) {
-                                    deviceCard.shellRoot.statusMessage = deviceCard.shellRoot.systemStatusBackend.actionMessage
-                                    if (deviceCard.shellRoot.systemStatusBackend.wifiEnabled &&
-                                        deviceCard.shellRoot.systemStatusBackend.actionMessage.indexOf("Masukkan sandi") === 0) {
-                                        deviceCard.shellRoot.pendingWifiSsid = deviceCard.modelData.name
-                                        deviceCard.shellRoot.wifiPassword = ""
-                                        deviceCard.shellRoot.wifiPasswordDialogOpen = true
-                                    }
                                 } else {
-                                    deviceCard.shellRoot.statusMessage = deviceCard.shellRoot.systemStatusBackend.actionMessage
+                                    deviceCard.shellRoot.pendingWifiSsid = deviceCard.modelData.name
+                                    deviceCard.shellRoot.statusMessage = "Menghubungkan ke " + deviceCard.modelData.name + "…"
+                                    deviceCard.shellRoot.systemStatusBackend.connectWifi(deviceCard.modelData.name, "")
                                 }
                             } else {
                                 deviceCard.shellRoot.statusMessage = deviceCard.modelData.name +
@@ -890,13 +901,8 @@ Window {
                                 text: root.wifiPassword
                                 onTextChanged: root.wifiPassword = text
                                 onAccepted: {
-                                    if (systemStatus.connectWifi(root.pendingWifiSsid, root.wifiPassword)) {
-                                        root.statusMessage = systemStatus.actionMessage
-                                        root.wifiPasswordDialogOpen = false
-                                        root.wifiPassword = ""
-                                    } else {
-                                        root.statusMessage = systemStatus.actionMessage
-                                    }
+                                    systemStatus.connectWifi(root.pendingWifiSsid, root.wifiPassword)
+                                    root.statusMessage = systemStatus.actionMessage
                                 }
 
                                 Text {
@@ -972,13 +978,8 @@ Window {
                                     anchors.fill: parent
                                     hoverEnabled: true
                                     onClicked: {
-                                        if (systemStatus.connectWifi(root.pendingWifiSsid, root.wifiPassword)) {
-                                            root.statusMessage = systemStatus.actionMessage
-                                            root.wifiPasswordDialogOpen = false
-                                            root.wifiPassword = ""
-                                        } else {
-                                            root.statusMessage = systemStatus.actionMessage
-                                        }
+                                        systemStatus.connectWifi(root.pendingWifiSsid, root.wifiPassword)
+                                        root.statusMessage = systemStatus.actionMessage
                                     }
                                 }
                             }

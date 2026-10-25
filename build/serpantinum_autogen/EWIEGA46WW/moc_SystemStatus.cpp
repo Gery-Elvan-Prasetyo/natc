@@ -41,12 +41,17 @@ template <> constexpr inline auto SystemStatus::qt_create_metaobjectdata<qt_meta
         "SystemStatus",
         "changed",
         "",
+        "operationFinished",
+        "operation",
+        "success",
+        "message",
+        "ssid",
+        "passwordRequired",
         "refresh",
         "setWifiEnabled",
         "enabled",
         "toggleWifi",
         "connectWifi",
-        "ssid",
         "password",
         "scanWifi",
         "disconnectWifi",
@@ -56,46 +61,54 @@ template <> constexpr inline auto SystemStatus::qt_create_metaobjectdata<qt_meta
         "wifiNetworks",
         "QVariantList",
         "bluetoothDevices",
-        "actionMessage"
+        "actionMessage",
+        "wifiBusy"
     };
 
     QtMocHelpers::UintData qt_methods {
         // Signal 'changed'
         QtMocHelpers::SignalData<void()>(1, 2, QMC::AccessPublic, QMetaType::Void),
+        // Signal 'operationFinished'
+        QtMocHelpers::SignalData<void(const QString &, bool, const QString &, const QString &, bool)>(3, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QString, 4 }, { QMetaType::Bool, 5 }, { QMetaType::QString, 6 }, { QMetaType::QString, 7 },
+            { QMetaType::Bool, 8 },
+        }}),
         // Method 'refresh'
-        QtMocHelpers::MethodData<void()>(3, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(9, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'setWifiEnabled'
-        QtMocHelpers::MethodData<void(bool)>(4, 2, QMC::AccessPublic, QMetaType::Void, {{
-            { QMetaType::Bool, 5 },
+        QtMocHelpers::MethodData<void(bool)>(10, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::Bool, 11 },
         }}),
         // Method 'toggleWifi'
-        QtMocHelpers::MethodData<void()>(6, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(12, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'connectWifi'
-        QtMocHelpers::MethodData<bool(const QString &, const QString &)>(7, 2, QMC::AccessPublic, QMetaType::Bool, {{
-            { QMetaType::QString, 8 }, { QMetaType::QString, 9 },
+        QtMocHelpers::MethodData<void(const QString &, const QString &)>(13, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { QMetaType::QString, 7 }, { QMetaType::QString, 14 },
         }}),
         // Method 'connectWifi'
-        QtMocHelpers::MethodData<bool(const QString &)>(7, 2, QMC::AccessPublic | QMC::MethodCloned, QMetaType::Bool, {{
-            { QMetaType::QString, 8 },
+        QtMocHelpers::MethodData<void(const QString &)>(13, 2, QMC::AccessPublic | QMC::MethodCloned, QMetaType::Void, {{
+            { QMetaType::QString, 7 },
         }}),
         // Method 'scanWifi'
-        QtMocHelpers::MethodData<void()>(10, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(15, 2, QMC::AccessPublic, QMetaType::Void),
         // Method 'disconnectWifi'
-        QtMocHelpers::MethodData<void()>(11, 2, QMC::AccessPublic, QMetaType::Void),
+        QtMocHelpers::MethodData<void()>(16, 2, QMC::AccessPublic, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
         // property 'wifiConnection'
-        QtMocHelpers::PropertyData<QString>(12, QMetaType::QString, QMC::DefaultPropertyFlags, 0),
+        QtMocHelpers::PropertyData<QString>(17, QMetaType::QString, QMC::DefaultPropertyFlags, 0),
         // property 'wifiEnabled'
-        QtMocHelpers::PropertyData<bool>(13, QMetaType::Bool, QMC::DefaultPropertyFlags, 0),
+        QtMocHelpers::PropertyData<bool>(18, QMetaType::Bool, QMC::DefaultPropertyFlags, 0),
         // property 'bluetoothEnabled'
-        QtMocHelpers::PropertyData<bool>(14, QMetaType::Bool, QMC::DefaultPropertyFlags, 0),
+        QtMocHelpers::PropertyData<bool>(19, QMetaType::Bool, QMC::DefaultPropertyFlags, 0),
         // property 'wifiNetworks'
-        QtMocHelpers::PropertyData<QVariantList>(15, 0x80000000 | 16, QMC::DefaultPropertyFlags | QMC::EnumOrFlag, 0),
+        QtMocHelpers::PropertyData<QVariantList>(20, 0x80000000 | 21, QMC::DefaultPropertyFlags | QMC::EnumOrFlag, 0),
         // property 'bluetoothDevices'
-        QtMocHelpers::PropertyData<QVariantList>(17, 0x80000000 | 16, QMC::DefaultPropertyFlags | QMC::EnumOrFlag, 0),
+        QtMocHelpers::PropertyData<QVariantList>(22, 0x80000000 | 21, QMC::DefaultPropertyFlags | QMC::EnumOrFlag, 0),
         // property 'actionMessage'
-        QtMocHelpers::PropertyData<QString>(18, QMetaType::QString, QMC::DefaultPropertyFlags, 0),
+        QtMocHelpers::PropertyData<QString>(23, QMetaType::QString, QMC::DefaultPropertyFlags, 0),
+        // property 'wifiBusy'
+        QtMocHelpers::PropertyData<bool>(24, QMetaType::Bool, QMC::DefaultPropertyFlags, 0),
     };
     QtMocHelpers::UintData qt_enums {
     };
@@ -118,20 +131,21 @@ void SystemStatus::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
         case 0: _t->changed(); break;
-        case 1: _t->refresh(); break;
-        case 2: _t->setWifiEnabled((*reinterpret_cast<std::add_pointer_t<bool>>(_a[1]))); break;
-        case 3: _t->toggleWifi(); break;
-        case 4: { bool _r = _t->connectWifi((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2])));
-            if (_a[0]) *reinterpret_cast<bool*>(_a[0]) = std::move(_r); }  break;
-        case 5: { bool _r = _t->connectWifi((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])));
-            if (_a[0]) *reinterpret_cast<bool*>(_a[0]) = std::move(_r); }  break;
-        case 6: _t->scanWifi(); break;
-        case 7: _t->disconnectWifi(); break;
+        case 1: _t->operationFinished((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<bool>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[3])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[4])),(*reinterpret_cast<std::add_pointer_t<bool>>(_a[5]))); break;
+        case 2: _t->refresh(); break;
+        case 3: _t->setWifiEnabled((*reinterpret_cast<std::add_pointer_t<bool>>(_a[1]))); break;
+        case 4: _t->toggleWifi(); break;
+        case 5: _t->connectWifi((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<QString>>(_a[2]))); break;
+        case 6: _t->connectWifi((*reinterpret_cast<std::add_pointer_t<QString>>(_a[1]))); break;
+        case 7: _t->scanWifi(); break;
+        case 8: _t->disconnectWifi(); break;
         default: ;
         }
     }
     if (_c == QMetaObject::IndexOfMethod) {
         if (QtMocHelpers::indexOfMethod<void (SystemStatus::*)()>(_a, &SystemStatus::changed, 0))
+            return;
+        if (QtMocHelpers::indexOfMethod<void (SystemStatus::*)(const QString & , bool , const QString & , const QString & , bool )>(_a, &SystemStatus::operationFinished, 1))
             return;
     }
     if (_c == QMetaObject::ReadProperty) {
@@ -143,6 +157,7 @@ void SystemStatus::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id
         case 3: *reinterpret_cast<QVariantList*>(_v) = _t->wifiNetworks(); break;
         case 4: *reinterpret_cast<QVariantList*>(_v) = _t->bluetoothDevices(); break;
         case 5: *reinterpret_cast<QString*>(_v) = _t->actionMessage(); break;
+        case 6: *reinterpret_cast<bool*>(_v) = _t->wifiBusy(); break;
         default: break;
         }
     }
@@ -167,20 +182,20 @@ int SystemStatus::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 8)
+        if (_id < 9)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 8;
+        _id -= 9;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 8)
+        if (_id < 9)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 8;
+        _id -= 9;
     }
     if (_c == QMetaObject::ReadProperty || _c == QMetaObject::WriteProperty
             || _c == QMetaObject::ResetProperty || _c == QMetaObject::BindableProperty
             || _c == QMetaObject::RegisterPropertyMetaType) {
         qt_static_metacall(this, _c, _id, _a);
-        _id -= 6;
+        _id -= 7;
     }
     return _id;
 }
@@ -189,5 +204,11 @@ int SystemStatus::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 void SystemStatus::changed()
 {
     QMetaObject::activate(this, &staticMetaObject, 0, nullptr);
+}
+
+// SIGNAL 1
+void SystemStatus::operationFinished(const QString & _t1, bool _t2, const QString & _t3, const QString & _t4, bool _t5)
+{
+    QMetaObject::activate<void>(this, &staticMetaObject, 1, nullptr, _t1, _t2, _t3, _t4, _t5);
 }
 QT_WARNING_POP
